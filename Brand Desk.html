@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brand Desk</title>
+<style>
+:root{--bg:#faf9f6;--card:#fff;--tx:#1f1d1a;--mu:#7a756c;--bd:#e4e0d8;--ac:#b4472a;--ok:#2f7d4f;--wa:#c98a14;--rd:#c0392b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171614;--card:#211f1c;--tx:#efece6;--mu:#9b958a;--bd:#38342e;--ac:#e0704f;--ok:#5bb97f;--wa:#e0aa3e;--rd:#e5675a}}
+:root[data-theme="dark"]{--bg:#171614;--card:#211f1c;--tx:#efece6;--mu:#9b958a;--bd:#38342e;--ac:#e0704f;--ok:#5bb97f;--wa:#e0aa3e;--rd:#e5675a}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif}
+.w{max-width:1000px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0 0 2px}.sub{color:var(--mu);font-size:13px;margin-bottom:16px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+button,input,select,textarea{font:inherit;color:var(--tx)}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer}
+.btn.g{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+.btn.s{padding:4px 10px;font-size:13px}
+input,select,textarea{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;width:100%}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.st{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px}
+.st b{font-size:24px;display:block}.st span{color:var(--mu);font-size:12px}
+.tbl{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--bd);font-size:14px;vertical-align:top}
+th{color:var(--mu);font-weight:500;font-size:12px}
+tr.br{cursor:pointer}tr.br:hover{background:var(--bg)}
+.tag{display:inline-block;border-radius:99px;padding:1px 9px;font-size:12px;border:1px solid var(--bd);color:var(--mu)}
+.tag.r{color:var(--rd);border-color:var(--rd)}.tag.o{color:var(--ok);border-color:var(--ok)}.tag.w{color:var(--wa);border-color:var(--wa)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--bd);margin-bottom:12px}
+.tabs button{background:none;border:0;padding:8px 12px;cursor:pointer;color:var(--mu);border-bottom:2px solid transparent}
+.tabs button.on{color:var(--tx);border-color:var(--ac);font-weight:600}
+.it{display:flex;gap:10px;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bd)}
+.it:last-child{border:0}.it .t{font-weight:600}.it .m{color:var(--mu);font-size:13px}
+.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:8px}
+.f label{font-size:12px;color:var(--mu);display:block}
+.late{color:var(--rd)}.empty{color:var(--mu);padding:16px 0;text-align:center}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto;z-index:20}
+.md{background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:560px}
+:root{--bg:#fff;--card:#fff}
+body{font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+tr.br:hover{background:#f6f6f4}
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap"></head><body><div class="w" id="app"></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const STAGES=['발주','생산중','선적','해상/항공 운송','입항','통관중','통관완료','입고완료'];
+const MST=['할일','진행중','완료'],SEV=['낮음','보통','긴급'];
+const TYPES={order:'수입 스케줄',chan:'진행 중인 채널',issue:'이슈'};
+let brands=[],items=[],view='home',cur=null,tab='order',db=null,dbOk=null,modal=null;
+const today=()=>new Date().toISOString().slice(0,10);
+const fmt=d=>d?d.slice(5).replace('-','/'):'-';
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function nextDate(i){return [i.ship,i.eta,i.clear,i.recv].filter(Boolean).sort().find(d=>d>=today())||''}
+function brandStats(b){
+  const its=items.filter(i=>i.brandId===b.id);
+  const orders=its.filter(i=>i.type==='order'&&i.stage!=='입고완료');
+  const nd=orders.map(nextDate).filter(Boolean).sort()[0]||'';
+  return{orders:orders.length,nd,mkt:its.filter(i=>i.type==='mkt'&&i.status!=='완료').length,
+    iss:its.filter(i=>i.type==='issue'&&i.status!=='해결').length,urg:its.filter(i=>i.type==='issue'&&i.status!=='해결'&&i.sev==='긴급').length}}
+function render(){
+  const a=$('#app');
+  if(dbOk===false){a.innerHTML='<h1>Brand Desk</h1><div class="card">공유 저장소에 연결하지 못했어요. claude.ai에 로그인한 상태에서, claude.ai 화면 안에서 이 페이지를 열어주세요. (링크를 외부 브라우저나 앱 내 브라우저로 열면 연결되지 않아요)</div>';return}
+  a.innerHTML=(view==='home'?home():detail())+(modal||'');
+}
+function home(){
+  const S=brands.map(brandStats);
+  const tot=k=>S.reduce((n,s)=>n+s[k],0);
+  const up=items.filter(i=>i.type==='order'&&i.stage!=='입고완료').flatMap(i=>[['선적',i.ship],['입항',i.eta],['통관',i.clear],['입고',i.recv]].filter(x=>x[1]&&x[1]>=today()).map(x=>({d:x[1],l:x[0],i}))).sort((a,b)=>a.d.localeCompare(b.d)).slice(0,8);
+  const bn=id=>(brands.find(b=>b.id===id)||{}).name||'';
+  return `<h1>Brand Desk</h1>
+  <div class="bar"><button class="btn" onclick="openBrand()">+ 브랜드 추가</button></div>
+  <div class="stats"><div class="st"><b>${brands.length}</b><span>브랜드</span></div><div class="st"><b>${tot('orders')}</b><span>진행중 오더</span></div><div class="st"><b class="${tot('iss')?'late':''}">${tot('iss')}</b><span>열린 이슈</span></div></div>
+  <div class="card"><b>다가오는 일정</b>${up.length?up.map(u=>`<div class="it"><div><span class="t">${esc(bn(u.i.brandId))}</span> · ${esc(u.i.title)}<div class="m">${u.l}</div></div><div>${fmt(u.d)}</div></div>`).join(''):'<div class="empty">예정된 일정이 없어요</div>'}</div>
+  <div class="card tbl"><table><tr><th>브랜드</th><th>국가</th><th>진행중 오더</th><th>다음 일정</th><th>이슈</th></tr>
+  ${brands.map((b,n)=>{const s=S[n];return `<tr class="br" onclick="openDetail('${b.id}')"><td><b>${esc(b.name)}</b><div class="m" style="color:var(--mu);font-size:12px">${esc(b.owner)}</div></td><td>${esc(b.country)}</td><td>${s.orders}</td><td>${fmt(s.nd)}</td><td>${s.iss?`<span class="tag r">${s.iss}건${s.urg?' · 긴급':''}</span>`:'<span class="tag o">없음</span>'}</td></tr>`}).join('')||'<tr><td colspan="5" class="empty">브랜드를 추가해 시작하세요</td></tr>'}</table></div>`}
+function detail(){
+  const b=brands.find(x=>x.id===cur);if(!b){view='home';return home()}
+  const its=items.filter(i=>i.brandId===b.id&&i.type===tab).sort((x,y)=>(nextDate(x)||x.due||'9').localeCompare(nextDate(y)||y.due||'9'));
+  const cnt=t=>items.filter(i=>i.brandId===b.id&&i.type===t).length;
+  return `<div class="bar"><button class="btn g s" onclick="view='home';render()">← 전체</button><button class="btn g s" onclick="openBrand('${b.id}')">브랜드 정보 수정</button></div>
+  <h1>${esc(b.name)}</h1><div class="sub">${esc(b.country)} · 담당 ${esc(b.owner)||'-'}${b.note?` · ${esc(b.note)}`:''}</div>
+  <div class="tabs">${Object.entries(TYPES).map(([k,v])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';render()">${v} (${cnt(k)})</button>`).join('')}</div>
+  <div class="bar"><button class="btn s" onclick="openItem()">+ ${TYPES[tab]} 추가</button>${tab==='chan'&&SM?' <button class="btn s" onclick="readStmt()">+ 거래명세서 PDF 올리기 (업체별 자동 정리)</button>':''}</div>
+  ${tab==='chan'?chanTop(b):''}<div class="card">${its.map(itemRow).join('')||'<div class="empty">아직 없어요</div>'}</div>`}
+let AS=null;
+const won=n=>Number(n||0).toLocaleString('ko-KR');
+const N=s=>Number(String(s||'').replace(/[^0-9.\-]/g,''))||0;
+const PL=s=>s.split('\n').map(l=>l.split('|').map(x=>x.trim())).filter(r=>r[0]);
+const TX=(a,k)=>(a||[]).map(x=>k.map(c=>x[c]??'').join(' | ')).join('\n');
+const sum=a=>(a||[]).reduce((n,x)=>n+(x.a||0),0);
+function fl(i){return (i.files||[]).map((f,n)=>`<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)}</a> <a href="#" onclick="rmFile('${i.id}',${n});return false" style="color:var(--mu)">×</a>`).join(' · ')}
+function upBtn(i,l){return AS?`<button class="btn g s" onclick="upFile('${i.id}')">${l}</button>`:''}
+function monthly(es){const m={};es.forEach(e=>{const k=(e.d||'').slice(0,7);if(!k)return;m[k]=m[k]||{n:0,a:0};m[k].n++;m[k].a+=e.a||0});return Object.entries(m).sort((a,b)=>b[0].localeCompare(a[0]))}
+function mtbl(es){const r=monthly(es);return r.length?`<table style="min-width:0"><tr><th>월</th><th>발주 건수</th><th>금액</th></tr>${r.map(([k,x])=>`<tr><td>${k}</td><td>${x.n}</td><td>${won(x.a)}</td></tr>`).join('')}</table>`:''}
+function chanTop(b){const es=items.filter(i=>i.brandId===b.id&&i.type==='chan').flatMap(c=>c.orders||[]);return es.length?`<div class="card"><b>월별 발주 현황 (전체 채널)</b><div class="tbl">${mtbl(es)}</div></div>`:''}
+function pick(cb){const f=document.createElement('input');f.type='file';f.onchange=()=>f.files[0]&&cb(f.files[0]);f.click()}
+function upFile(id){pick(async f=>{try{const r=await AS.upload(f);const it=items.find(x=>x.id===id);await db.collection('items').doc(id).update({files:[...(it.files||[]),{id:r.id,url:r.url,name:f.name}]})}catch(e){alert('업로드하지 못했어요: '+(e.message||e.code))}})}
+function rmFile(id,n){ask('이 파일을 목록에서 제거할까요?',()=>{const it=items.find(x=>x.id===id);db.collection('items').doc(id).update({files:it.files.filter((_,k)=>k!==n)})})}
+function openEntry(cid){modal=`<div class="ov"><div class="md"><h3 style="margin-top:0">발주 내역 수기 입력</h3><div class="f">${fld('발주일','ed','','date')}${fld('품목','et')}${fld('수량','eq')}${fld('금액','ea')}</div>${fld('메모','em')}<div class="bar" style="margin-top:14px"><button class="btn" onclick="saveEntry('${cid}')">저장</button><button class="btn g" onclick="modal=null;render()">취소</button></div></div></div>`;render()}
+function saveEntry(cid){if(!v('ed'))return alert('발주일을 입력하세요');const it=items.find(x=>x.id===cid);w(0,()=>db.collection('items').doc(cid).update({orders:[...(it.orders||[]),{d:v('ed'),t:v('et'),q:N(v('eq')),a:N(v('ea')),m:v('em'),src:'수기'}]}))}
+function delEntry(cid,n){ask('이 발주 내역을 삭제할까요?',()=>{const it=items.find(x=>x.id===cid);db.collection('items').doc(cid).update({orders:it.orders.filter((_,k)=>k!==n)})})}
+let SM=false,pend=null;
+window.alert=m=>{const d=document.createElement('div');d.className='ov';d.style.zIndex=50;d.innerHTML=`<div class="md"><div style="margin-bottom:14px">${esc(m)}</div><button class="btn">확인</button></div>`;d.querySelector('button').onclick=()=>d.remove();document.body.appendChild(d)};
+function ask(m,fn){const d=document.createElement('div');d.className='ov';d.style.zIndex=50;d.innerHTML=`<div class="md"><div style="margin-bottom:14px">${esc(m)}</div><div class="bar" style="justify-content:flex-start"><button class="btn">확인</button><button class="btn g">취소</button></div></div>`;const b=d.querySelectorAll('button');b[0].onclick=()=>{d.remove();fn()};b[1].onclick=()=>d.remove();document.body.appendChild(d)}
+const PR={pi:['프로포마 인보이스','{"items":[{"n":"제품명","q":수량(숫자),"a":해당 품목 총액(숫자)}],"cur":"통화코드(EUR, USD 등)"}'],st:['통관 정산서','{"bl":"B/L 번호(없으면 빈 문자열)","pays":[{"v":"지급 대상 업체명","a":금액(숫자)}]}'],tm:['거래명세서','{"orders":[{"d":"YYYY-MM-DD","t":"품목","q":수량(숫자),"a":금액(숫자)}]}']};
+function aiBtn(k,i,l){return SM?`<button class="btn g s" onclick="readDoc('${k}','${i.id}')">${l}</button>`:''}
+function busy(m){modal=`<div class="ov"><div class="md">${m}</div></div>`;render()}
+async function pdfText(f){const L=window.pdfjsLib;if(!L)throw{message:'PDF 읽기 도구를 불러오지 못했어요'};L.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const d=await L.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;let t='';for(let p=1;p<=Math.min(d.numPages,15);p++){const c=await(await d.getPage(p)).getTextContent();t+=c.items.map(x=>x.str+(x.hasEOL?'\n':' ')).join('')+'\n'}return t}
+function readDoc(kind,id){pick(async f=>{if(!SM)return putFile(id,f);try{const S=await claude.use('sample');if(!S)throw{message:'자동 입력을 사용할 수 없어요'};busy('문서를 읽는 중이에요… (최대 1분)');const t=(await pdfText(f)).slice(0,60000);if(t.replace(/\s/g,'').length<30)throw{message:'글자를 읽을 수 없는 PDF예요 (스캔본일 수 있어요). 채팅에 올려주시면 제가 읽어드릴게요.'};const r=await S.json(`다음은 ${PR[kind][0]}에서 추출한 텍스트입니다. 아래 JSON 형식으로만 답하세요. 문서에 없는 값은 빈 값으로 두고 추측하지 마세요.\n형식: ${PR[kind][1]}\n\n${t}`);pend={kind,id,r,f};showPend()}catch(e){modal=null;render();alert(e.message||e.code||'읽지 못했어요')}})}
+function showPend(){const {kind,r}=pend;let h='';if(kind==='pi')h=(r.items||[]).map(x=>`${esc(x.n)} × ${won(N(x.q))} · ${won(N(x.a))}`).join('<br>')+`<br><b>통화 ${esc(r.cur||'-')}</b>`;if(kind==='st')h=`<b>BL ${esc(r.bl||'(찾지 못함)')}</b><br>`+(r.pays||[]).map(x=>`${esc(x.v)} ${won(N(x.a))}`).join('<br>');if(kind==='tm')h=(r.orders||[]).map(x=>`${esc(x.d)} · ${esc(x.t)} × ${won(N(x.q))} · ${won(N(x.a))}`).join('<br>');modal=`<div class="ov"><div class="md"><h3 style="margin-top:0">읽은 내용을 확인하세요</h3><div class="m" style="color:var(--tx)">${h||'읽어낸 내용이 없어요'}</div><div class="bar" style="margin-top:14px"><button class="btn" onclick="applyPend()">적용 (파일도 함께 보관)</button><button class="btn g" onclick="pend=null;modal=null;render()">취소</button></div></div></div>`;render()}
+async function applyPend(){const {kind,id,r,f}=pend;const it=items.find(x=>x.id===id);const u={};if(kind==='pi'){u.items=(r.items||[]).map(x=>({n:String(x.n||''),q:N(x.q),a:N(x.a)}));if(r.cur)u.cur=String(r.cur)}if(kind==='st'){if(r.bl)u.bl=String(r.bl);u.pays=(r.pays||[]).map(x=>({v:String(x.v||''),a:N(x.a)}))}if(kind==='tm')u.orders=[...(it.orders||[]),...(r.orders||[]).map(x=>({d:String(x.d||''),t:String(x.t||''),q:N(x.q),a:N(x.a),src:'거래명세서'}))];try{if(AS){const up=await AS.upload(f);u.files=[...(it.files||[]),{id:up.id,url:up.url,name:f.name}]}await db.collection('items').doc(id).update(u)}catch(e){alert('저장하지 못했어요: '+(e.message||e.code))}pend=null;modal=null;render()}
+function docBtn(k,i,l){return (AS||SM)?`<button class="btn g s" onclick="readDoc('${k}','${i.id}')">${l}</button>`:''}
+async function putFile(id,f){try{const it=items.find(x=>x.id===id);const r=await AS.upload(f);await db.collection('items').doc(id).update({files:[...(it.files||[]),{id:r.id,url:r.url,name:f.name}]})}catch(e){alert('업로드하지 못했어요: '+(e.message||e.code||'권한을 확인하세요'))}}
+function readStmt(){pick(async f=>{try{const S=await claude.use('sample');if(!S)throw{message:'자동 입력을 사용할 수 없어요'};busy('문서를 읽는 중이에요… (최대 1분)');const t=(await pdfText(f)).slice(0,60000);if(t.replace(/\s/g,'').length<30)throw{message:'글자를 읽을 수 없는 PDF예요 (스캔본일 수 있어요). 채팅에 올려주시면 제가 읽어드릴게요.'};const r=await S.json(`다음은 거래명세서에서 추출한 텍스트입니다. 납품받는 업체(거래처)별로 정리해 아래 JSON 형식으로만 답하세요. 문서에 없는 값은 비워두고 추측하지 마세요.\n형식: {"vendors":[{"name":"업체명","orders":[{"d":"YYYY-MM-DD","t":"품목","q":수량(숫자),"a":금액(숫자)}]}]}\n\n${t}`);pend={r,f};const key=x=>String(x||'').replace(/\s/g,'').toLowerCase();const h=(r.vendors||[]).map(v=>{const nm=String(v.name||'').trim();const ex=nm&&items.some(x=>x.brandId===cur&&x.type==='chan'&&key(x.title)===key(nm));return `<div style="margin-bottom:10px"><b>${esc(nm)||'(업체명 없음 — 적용 시 제외)'}</b> <span class="tag">${ex?'기존 채널':'신규 채널'}</span><div class="m">${(v.orders||[]).map(x=>`${esc(x.d)} · ${esc(x.t)} × ${won(N(x.q))} · ${won(N(x.a))}`).join('<br>')}</div></div>`}).join('');modal=`<div class="ov"><div class="md"><h3 style="margin-top:0">읽은 내용을 확인하세요</h3>${h||'읽어낸 내용이 없어요'}<div class="bar" style="margin-top:14px"><button class="btn" onclick="applyStmt()">적용 (파일도 함께 보관)</button><button class="btn g" onclick="pend=null;modal=null;render()">취소</button></div></div></div>`;render()}catch(e){modal=null;render();alert(e.message||e.code||'읽지 못했어요')}})}
+async function applyStmt(){const {r,f}=pend;try{let up=null;if(AS){const u=await AS.upload(f);up={id:u.id,url:u.url,name:f.name}}const key=x=>String(x||'').replace(/\s/g,'').toLowerCase();for(const v of r.vendors||[]){const nm=String(v.name||'').trim();if(!nm)continue;const c=items.find(x=>x.brandId===cur&&x.type==='chan'&&key(x.title)===key(nm));const od=(v.orders||[]).map(x=>({d:String(x.d||''),t:String(x.t||''),q:N(x.q),a:N(x.a),src:'거래명세서'}));if(c)await db.collection('items').doc(c.id).update({orders:[...(c.orders||[]),...od],...(up?{files:[...(c.files||[]),up]}:{})});else await db.collection('items').doc(uid()).set({brandId:cur,type:'chan',title:nm,note:'',orders:od,files:up?[up]:[],at:Date.now()})}}catch(e){alert('저장하지 못했어요: '+(e.message||e.code))}pend=null;modal=null;render()}
+function itemRow(i){
+ if(i.type==='issue')return itemRow0(i);
+ if(i.type==='order'){const tot=sum(i.items);
+  const dt=[['선적',i.ship],['입항',i.eta],['통관',i.clear],['입고',i.recv]].filter(x=>x[1]).map(x=>`<span class="${x[1]<today()&&i.stage!=='입고완료'?'late':''}">${x[0]} ${fmt(x[1])}</span>`).join(' · ');
+  return `<div class="it"><div style="flex:1;min-width:0"><div class="t">${esc(i.title)} <span class="tag ${i.stage==='입고완료'?'o':'w'}">${esc(i.stage)}</span>${i.bl?` <span class="tag">BL ${esc(i.bl)}</span>`:''}</div><div class="m">${dt}</div>${(i.items||[]).length?`<div class="m" style="margin-top:4px">${i.items.map(x=>`${esc(x.n)} × ${won(x.q)} · ${won(x.a)}`).join('<br>')}<br><b>합계 ${esc(i.cur)} ${won(tot)}</b></div>`:''}${(i.pays||[]).length?`<div class="m" style="font-size:12px;margin-top:4px">지급: ${i.pays.map(x=>`${esc(x.v)} ${won(x.a)}`).join(' · ')}</div>`:''}${i.note?`<div class="m">${esc(i.note)}</div>`:''}<div class="m" style="margin-top:4px">${fl(i)} ${docBtn('pi',i,'+ 인보이스 업로드')} ${docBtn('st',i,'+ 정산서 업로드')}</div></div><div><button class="btn g s" onclick="openItem('${i.id}')">수정</button></div></div>`}
+ const es=(i.orders||[]).map((e,n)=>({...e,n})).sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+ return `<div class="it" style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><div class="t">${esc(i.title)}</div><div><button class="btn g s" onclick="openEntry('${i.id}')">+ 발주 내역</button> <button class="btn g s" onclick="openItem('${i.id}')">수정</button></div></div>${i.note?`<div class="m">${esc(i.note)}</div>`:''}<div class="m" style="margin:4px 0">${fl(i)} ${upBtn(i,'+ 거래명세서 보관')}</div><div class="tbl">${mtbl(es)}</div>${es.length?`<details><summary class="m">발주 내역 ${es.length}건</summary>${es.map(e=>`<div class="m">${fmt(e.d)} · ${esc(e.t)} ${e.q?'× '+won(e.q):''} · ${won(e.a)} ${e.m?'· '+esc(e.m):''} <span class="tag">${esc(e.src||'수기')}</span> <a href="#" onclick="delEntry('${i.id}',${e.n});return false">삭제</a></div>`).join('')}</details>`:''}</div>`}
+function itemRow0(i){
+  let m='',tg='';
+  if(i.type==='order'){tg=`<span class="tag ${i.stage==='입고완료'?'o':'w'}">${esc(i.stage)}</span>`;
+    m=[['선적',i.ship],['입항',i.eta],['통관',i.clear],['입고',i.recv]].filter(x=>x[1]).map(x=>`<span class="${x[1]<today()&&i.stage!=='입고완료'?'late':''}">${x[0]} ${fmt(x[1])}</span>`).join(' · ')}
+  else if(i.type==='mkt'){tg=`<span class="tag ${i.status==='완료'?'o':i.status==='진행중'?'w':''}">${esc(i.status)}</span>`;m=[i.due?`마감 ${fmt(i.due)}`:'',i.who?`담당 ${esc(i.who)}`:''].filter(Boolean).join(' · ')}
+  else{tg=`<span class="tag ${i.status==='해결'?'o':i.sev==='긴급'?'r':'w'}">${i.status==='해결'?'해결':esc(i.sev)}</span>`}
+  return `<div class="it"><div><div class="t">${esc(i.title)} ${tg}</div><div class="m">${m}</div>${i.note?`<div class="m">${esc(i.note)}</div>`:''}</div><div><button class="btn g s" onclick="openItem('${i.id}')">수정</button></div></div>`}
+function fld(l,id,v='',t='text'){return `<div><label>${l}</label><input id="${id}" type="${t}" value="${esc(v)}"></div>`}
+function sel(l,id,o,v){return `<div><label>${l}</label><select id="${id}">${o.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('')}</select></div>`}
+function openBrand(id){
+  const b=brands.find(x=>x.id===id)||{};
+  modal=`<div class="ov"><div class="md"><h3 style="margin-top:0">${id?'브랜드 수정':'브랜드 추가'}</h3><div class="f">${fld('브랜드명','bn',b.name)}${fld('국가','bc',b.country)}${fld('내부 담당자','bo',b.owner)}</div>${fld('메모','bm',b.note)}
+  <div class="bar" style="margin-top:14px"><button class="btn" onclick="saveBrand('${id||''}')">저장</button><button class="btn g" onclick="modal=null;render()">취소</button>${id?`<button class="btn g" style="margin-left:auto;color:var(--rd)" onclick="delBrand('${id}')">삭제</button>`:''}</div></div></div>`;render()}
+function openItem(id){
+  const i=items.find(x=>x.id===id)||{};let h='';
+  if(tab==='order')h=`${fld('제품 / 오더명','it',i.title)}<div class="f">${sel('진행 단계','is',STAGES,i.stage||STAGES[0])}${fld('선적일','d1',i.ship,'date')}${fld('입항 예정','d2',i.eta,'date')}${fld('통관 예정','d3',i.clear,'date')}${fld('입고 예정','d4',i.recv,'date')}${fld('BL No.','bl',i.bl)}${fld('통화 (예: EUR, USD)','cu',i.cur)}</div><label style="font-size:12px;color:var(--mu)">품목 (한 줄에 제품명 | 수량 | 금액)</label><textarea id="li" rows="4">${esc(TX(i.items,['n','q','a']))}</textarea><label style="font-size:12px;color:var(--mu)">정산서 지급 내역 (업체 | 금액)</label><textarea id="pa" rows="2">${esc(TX(i.pays,['v','a']))}</textarea>`;
+  if(tab==='chan')h=`${fld('납품 업체명','it',i.title)}`;
+  if(tab==='issue')h=`${fld('이슈 제목','it',i.title)}<div class="f">${sel('중요도','iv',SEV,i.sev||'보통')}${sel('상태','is',['열림','해결'],i.status||'열림')}</div>`;
+  modal=`<div class="ov"><div class="md"><h3 style="margin-top:0">${TYPES[tab]} ${id?'수정':'추가'}</h3>${h}<label style="font-size:12px;color:var(--mu)">메모 / 특이사항</label><textarea id="in" rows="3">${esc(i.note)}</textarea>
+  <div class="bar" style="margin-top:14px"><button class="btn" onclick="saveItem('${id||''}')">저장</button><button class="btn g" onclick="modal=null;render()">취소</button>${id?`<button class="btn g" style="margin-left:auto;color:var(--rd)" onclick="delItem('${id}')">삭제</button>`:''}</div></div></div>`;render()}
+const v=id=>($('#'+id)||{}).value||'';
+async function w(p,fn){try{await fn()}catch(e){alert('저장하지 못했어요: '+(e.message||e.code))}modal=null;render()}
+function saveBrand(id){if(!v('bn').trim())return alert('브랜드명을 입력하세요');id=id||uid();
+  w(0,()=>db.collection('brands').doc(id).set({name:v('bn').trim(),country:v('bc'),owner:v('bo'),note:v('bm'),at:Date.now()}))}
+function delBrand(id){ask('이 브랜드와 모든 항목을 삭제할까요?',()=>delBrand2(id))}
+function delBrand2(id){
+  w(0,async()=>{for(const i of items.filter(x=>x.brandId===id))await db.collection('items').doc(i.id).delete();await db.collection('brands').doc(id).delete();view='home'})}
+function saveItem(id){if(!v('it').trim())return alert('제목을 입력하세요');id=id||uid();
+  const o={...(items.find(x=>x.id===id)||{}),brandId:cur,type:tab,title:v('it').trim(),note:v('in'),at:Date.now()};
+  if(tab==='order')Object.assign(o,{stage:v('is'),ship:v('d1'),eta:v('d2'),clear:v('d3'),recv:v('d4'),bl:v('bl'),cur:v('cu'),items:PL(v('li')).map(r=>({n:r[0],q:N(r[1]),a:N(r[2])})),pays:PL(v('pa')).map(r=>({v:r[0],a:N(r[1])}))});
+  
+  if(tab==='issue')Object.assign(o,{sev:v('iv'),status:v('is')});
+  w(0,()=>db.collection('items').doc(id).set(o))}
+function delItem(id){ask('이 항목을 삭제할까요?',()=>w(0,()=>db.collection('items').doc(id).delete()))}
+function openDetail(id){cur=id;view='detail';tab='order';render();scrollTo(0,0)}
+(async()=>{
+  render();
+  try{db=await claude.use('db')}catch(e){db=null}
+  if(!db){dbOk=false;return render()}
+  dbOk=true;claude.use('assets').then(a=>{AS=a;render()}).catch(()=>{});claude.use('sample').then(s=>{SM=!!s;render()}).catch(()=>{});
+  const snap=(s,set)=>{set(s.docs.map(d=>({id:d.id,...d.data()})));render()};
+  db.collection('brands').onSnapshot(s=>snap(s,r=>brands=r.sort((a,b)=>a.name.localeCompare(b.name,'ko'))),()=>{});
+  db.collection('items').onSnapshot(s=>snap(s,r=>items=r),()=>{});
+})();
+</script></body></html>
